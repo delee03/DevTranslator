@@ -1,0 +1,35 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="mask">
+      <rect width="1024" height="1024" rx="228"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#mask)">
+    <!-- Background layers -->
+    <rect width="1024" height="1024" fill="#1a1a2e"/>
+    <rect y="600" width="1024" height="424" fill="#16213e"/>
+    <rect y="760" width="1024" height="264" fill="#0f3460"/>
+
+    <!-- Dt monogram -->
+    <text x="270" y="500" font-family="system-ui, -apple-system, SF Pro Display, Helvetica Neue, sans-serif" font-size="420" font-weight="700" fill="#e94560" letter-spacing="-16">D</text>
+    <text x="560" y="500" font-family="system-ui, -apple-system, SF Pro Display, Helvetica Neue, sans-serif" font-size="420" font-weight="300" fill="#ffffff" opacity="0.95">t</text>
+
+    <!-- Translation arrow -->
+    <line x1="360" y1="640" x2="640" y2="640" stroke="#e94560" stroke-width="7" stroke-linecap="round"/>
+    <polygon points="624,622 660,640 624,658" fill="#e94560"/>
+
+    <!-- Subtle terminal texture -->
+    <g opacity="0.05">
+      <text x="70" y="110" font-family="SF Mono, Menlo, monospace" font-size="30" fill="#ffffff">$ devtranslator "hello"</text>
+      <text x="70" y="155" font-family="SF Mono, Menlo, monospace" font-size="30" fill="#ffffff">→ xin chào</text>
+      <text x="580" y="930" font-family="SF Mono, Menlo, monospace" font-size="26" fill="#ffffff">async throws</text>
+      <text x="70" y="930" font-family="SF Mono, Menlo, monospace" font-size="26" fill="#ffffff">AXUIElement</text>
+    </g>
+
+    <!-- Accent dots -->
+    <circle cx="170" cy="860" r="8" fill="#e94560" opacity="0.2"/>
+    <circle cx="890" cy="120" r="10" fill="#e94560" opacity="0.1"/>
+    <circle cx="850" cy="870" r="5" fill="#ffffff" opacity="0.07"/>
+  </g>
+</svg>

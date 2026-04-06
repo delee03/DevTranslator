@@ -1,0 +1,11 @@
+<svg width="36" height="36" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+  <!-- macOS menu bar template icon: monochrome black on transparent -->
+  <!-- Named "Template" so macOS auto-inverts for dark mode -->
+
+  <!-- Rounded rect background outline -->
+  <rect x="1" y="4" width="34" height="28" rx="5" fill="none" stroke="#000000" stroke-width="1.5"/>
+
+  <!-- Dt monogram -->
+  <text x="4" y="26" font-family="system-ui, -apple-system, Helvetica Neue, sans-serif" font-size="18" font-weight="700" fill="#000000">D</text>
+  <text x="18" y="26" font-family="system-ui, -apple-system, Helvetica Neue, sans-serif" font-size="18" font-weight="300" fill="#000000">t</text>
+</svg>

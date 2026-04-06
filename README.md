@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/icon.png" alt="DevTranslator" width="120" />
+  <img src="Assets/icon.svg" alt="DevTranslator" width="120" />
 </p>
 
 <h1 align="center">DevTranslator</h1>
