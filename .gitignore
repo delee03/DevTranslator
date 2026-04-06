@@ -1,0 +1,32 @@
+# Xcode user/session
+xcuserdata/
+.swiftpm/xcode/xcshareddata/
+*.env
+*.local
+
+# Build products
+.build/
+DerivedData
+
+# Release artifacts
+*.ipa
+*.dSYM*
+*.zip
+*.delta
+*.dmg
+*.pkg
+*.tar.gz
+*.tgz
+debug_*.swift
+
+# Misc
+.DS_Store
+.vscode/
+.swiftpm-cache/
+
+# Debug/analysis docs
+docs/*-analysis.md
+
+# Swift Package Manager metadata (leave sources tracked)
+# Packages/
+# Package.resolved
