@@ -1,160 +1,142 @@
-import XCTest
+import Foundation
+import Testing
 @testable import TranslationEngine
 
-final class CachedTranslationServiceTests: XCTestCase {
+@Suite("CachedTranslationService Tests")
+struct CachedTranslationServiceTests {
 
-    private var mock: MockTranslationService!
-    private var cached: CachedTranslationService!
-
-    override func setUp() {
-        super.setUp()
-        mock = MockTranslationService()
-        cached = CachedTranslationService(service: mock, cacheSize: 50)
+    private func makeSUT() -> (mock: MockTranslationService, cached: CachedTranslationService) {
+        let mock = MockTranslationService()
+        let cached = CachedTranslationService(service: mock, cacheSize: 50)
+        return (mock, cached)
     }
 
-    override func tearDown() {
-        mock = nil
-        cached = nil
-        super.tearDown()
-    }
+    // MARK: - First call delegates to underlying
 
-    // MARK: - First call goes to underlying service
-
-    func testFirstCallDelegatesToUnderlyingService() async throws {
+    @Test func firstCallDelegatesToUnderlyingService() async throws {
+        let (mock, cached) = makeSUT()
         mock.translatedTextOverride = "Xin chao"
 
         let result = try await cached.translate(text: "Hello", from: "en", to: "vi")
 
-        XCTAssertEqual(result.originalText, "Hello")
-        XCTAssertEqual(result.translatedText, "Xin chao")
-        XCTAssertEqual(result.targetLang, "vi")
-        XCTAssertEqual(mock.callCount, 1, "Underlying service should be called once")
+        #expect(result.originalText == "Hello")
+        #expect(result.translatedText == "Xin chao")
+        #expect(result.targetLang == "vi")
+        #expect(mock.callCount == 1)
     }
 
-    // MARK: - Second call returns cached result
+    // MARK: - Second call returns cached
 
-    func testSecondCallWithSameInputReturnsCachedResult() async throws {
+    @Test func secondCallWithSameInputReturnsCached() async throws {
+        let (mock, cached) = makeSUT()
         mock.translatedTextOverride = "Xin chao"
 
         let first = try await cached.translate(text: "Hello", from: "en", to: "vi")
         let second = try await cached.translate(text: "Hello", from: "en", to: "vi")
 
-        XCTAssertEqual(first, second)
-        XCTAssertEqual(mock.callCount, 1,
-                       "Underlying service should only be called once; second call should hit cache")
+        #expect(first == second)
+        #expect(mock.callCount == 1, "Second call should hit cache")
     }
 
-    func testCacheCountIncreasesAfterTranslation() async throws {
-        XCTAssertEqual(cached.cacheCount, 0)
+    @Test func cacheCountIncreasesAfterTranslation() async throws {
+        let (_, cached) = makeSUT()
+        #expect(cached.cacheCount == 0)
 
         _ = try await cached.translate(text: "Hello", from: "en", to: "vi")
-
-        XCTAssertEqual(cached.cacheCount, 1)
+        #expect(cached.cacheCount == 1)
     }
 
-    // MARK: - Different inputs both get translated
+    // MARK: - Different inputs
 
-    func testDifferentInputsBothCallUnderlyingService() async throws {
+    @Test func differentInputsBothCallUnderlying() async throws {
+        let (mock, cached) = makeSUT()
+
         let r1 = try await cached.translate(text: "Hello", from: "en", to: "vi")
         let r2 = try await cached.translate(text: "Goodbye", from: "en", to: "vi")
 
-        XCTAssertEqual(mock.callCount, 2, "Each unique input should call the underlying service")
-        XCTAssertNotEqual(r1.originalText, r2.originalText)
-        XCTAssertEqual(r1.translatedText, "mock-Hello")
-        XCTAssertEqual(r2.translatedText, "mock-Goodbye")
-        XCTAssertEqual(cached.cacheCount, 2)
+        #expect(mock.callCount == 2)
+        #expect(r1.originalText != r2.originalText)
+        #expect(r1.translatedText == "mock-Hello")
+        #expect(r2.translatedText == "mock-Goodbye")
+        #expect(cached.cacheCount == 2)
     }
 
-    func testDifferentTargetLanguagesAreCachedSeparately() async throws {
+    @Test func differentTargetLanguagesCachedSeparately() async throws {
+        let (mock, cached) = makeSUT()
+
         _ = try await cached.translate(text: "Hello", from: "en", to: "vi")
         _ = try await cached.translate(text: "Hello", from: "en", to: "ja")
-
-        XCTAssertEqual(mock.callCount, 2)
-        XCTAssertEqual(cached.cacheCount, 2)
+        #expect(mock.callCount == 2)
+        #expect(cached.cacheCount == 2)
 
         // Repeating should hit cache
         _ = try await cached.translate(text: "Hello", from: "en", to: "vi")
         _ = try await cached.translate(text: "Hello", from: "en", to: "ja")
-
-        XCTAssertEqual(mock.callCount, 2, "Repeated calls should hit cache, not underlying service")
+        #expect(mock.callCount == 2, "Repeated calls should hit cache")
     }
 
     // MARK: - clearCache
 
-    func testClearCacheEmptiesAllEntries() async throws {
+    @Test func clearCacheEmptiesAllEntries() async throws {
+        let (_, cached) = makeSUT()
         _ = try await cached.translate(text: "Hello", from: "en", to: "vi")
         _ = try await cached.translate(text: "World", from: "en", to: "vi")
-        XCTAssertEqual(cached.cacheCount, 2)
+        #expect(cached.cacheCount == 2)
 
         cached.clearCache()
-
-        XCTAssertEqual(cached.cacheCount, 0)
+        #expect(cached.cacheCount == 0)
     }
 
-    func testAfterClearCacheNextCallGoesToUnderlyingService() async throws {
+    @Test func afterClearCacheNextCallGoesToUnderlying() async throws {
+        let (mock, cached) = makeSUT()
         _ = try await cached.translate(text: "Hello", from: "en", to: "vi")
-        XCTAssertEqual(mock.callCount, 1)
+        #expect(mock.callCount == 1)
 
         cached.clearCache()
-
-        // Translating the same text should call the underlying service again
         _ = try await cached.translate(text: "Hello", from: "en", to: "vi")
-        XCTAssertEqual(mock.callCount, 2,
-                       "After clearing cache, the same text should go to the underlying service again")
+        #expect(mock.callCount == 2, "After clearing, same text should call underlying again")
     }
 
     // MARK: - Error propagation
 
-    func testErrorFromUnderlyingServiceIsPropagated() async {
+    @Test func errorFromUnderlyingIsPropagated() async {
+        let (mock, cached) = makeSUT()
         mock.errorToThrow = TranslationError.rateLimited
 
-        do {
-            _ = try await cached.translate(text: "Hello", from: "en", to: "vi")
-            XCTFail("Expected error to be thrown")
-        } catch let error as TranslationError {
-            switch error {
-            case .rateLimited:
-                break // expected
-            default:
-                XCTFail("Expected .rateLimited, got: \(error)")
-            }
-        } catch {
-            XCTFail("Unexpected error type: \(error)")
+        await #expect(throws: TranslationError.self) {
+            try await cached.translate(text: "Hello", from: "en", to: "vi")
         }
-
-        XCTAssertEqual(cached.cacheCount, 0,
-                       "Failed translations should not be cached")
+        #expect(cached.cacheCount == 0, "Failed translations should not be cached")
     }
 
-    func testErrorDoesNotCacheResult() async {
+    @Test func errorDoesNotCacheResult() async throws {
+        let (mock, cached) = makeSUT()
         mock.errorToThrow = TranslationError.networkError(underlying: URLError(.notConnectedToInternet))
 
         _ = try? await cached.translate(text: "Hello", from: "en", to: "vi")
+        #expect(cached.cacheCount == 0)
 
-        XCTAssertEqual(cached.cacheCount, 0, "Failed translation should not be cached")
-
-        // Now make it succeed
         mock.errorToThrow = nil
         mock.translatedTextOverride = "Xin chao"
 
-        let result = try? await cached.translate(text: "Hello", from: "en", to: "vi")
-
-        XCTAssertEqual(result?.translatedText, "Xin chao")
-        XCTAssertEqual(mock.callCount, 2, "Should call underlying service again after previous failure")
-        XCTAssertEqual(cached.cacheCount, 1)
+        let result = try await cached.translate(text: "Hello", from: "en", to: "vi")
+        #expect(result.translatedText == "Xin chao")
+        #expect(mock.callCount == 2, "Should call underlying again after previous failure")
+        #expect(cached.cacheCount == 1)
     }
 
-    // MARK: - Mock call tracking
+    // MARK: - Call tracking
 
-    func testMockRecordsCallArguments() async throws {
+    @Test func mockRecordsCallArguments() async throws {
+        let (mock, cached) = makeSUT()
         _ = try await cached.translate(text: "Hello", from: "en", to: "vi")
         _ = try await cached.translate(text: "World", from: "en", to: "ja")
 
-        XCTAssertEqual(mock.calls.count, 2)
-        XCTAssertEqual(mock.calls[0].text, "Hello")
-        XCTAssertEqual(mock.calls[0].from, "en")
-        XCTAssertEqual(mock.calls[0].to, "vi")
-        XCTAssertEqual(mock.calls[1].text, "World")
-        XCTAssertEqual(mock.calls[1].to, "ja")
+        #expect(mock.calls.count == 2)
+        #expect(mock.calls[0].text == "Hello")
+        #expect(mock.calls[0].from == "en")
+        #expect(mock.calls[0].to == "vi")
+        #expect(mock.calls[1].text == "World")
+        #expect(mock.calls[1].to == "ja")
     }
 }

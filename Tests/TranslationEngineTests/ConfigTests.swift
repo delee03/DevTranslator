@@ -1,47 +1,45 @@
-import XCTest
+import Foundation
+import Testing
 @testable import Shared
 
-final class ConfigTests: XCTestCase {
+@Suite("Config Tests")
+struct ConfigTests {
 
     // MARK: - Default config values
 
-    func testDefaultConfigHasExpectedValues() {
+    @Test func defaultConfigHasExpectedValues() {
         let config = Config.default
 
-        XCTAssertEqual(config.targetLang, "vi")
-        XCTAssertEqual(config.sourceLang, "", "Source language should default to empty (auto-detect)")
-        XCTAssertEqual(config.shortcut, "cmd+shift+t")
-        XCTAssertTrue(config.autostart)
-        XCTAssertTrue(config.showSelectionIcon)
-        XCTAssertEqual(config.popupDuration, 10)
-        XCTAssertEqual(config.apiTimeoutMs, 3000)
-        XCTAssertEqual(config.cacheSize, 500)
+        #expect(config.targetLang == "vi")
+        #expect(config.sourceLang == "")
+        #expect(config.shortcut == "cmd+shift+t")
+        #expect(config.autostart == true)
+        #expect(config.showSelectionIcon == true)
+        #expect(config.popupDuration == 10)
+        #expect(config.apiTimeoutMs == 3000)
+        #expect(config.cacheSize == 500)
     }
 
-    func testDefaultInitMatchesStaticDefault() {
-        let initDefault = Config()
-        XCTAssertEqual(initDefault, Config.default)
+    @Test func defaultInitMatchesStaticDefault() {
+        #expect(Config() == Config.default)
     }
 
     // MARK: - JSON round-trip
 
-    func testConfigEncodesToJSON() throws {
-        let config = Config.default
+    @Test func configEncodesToJSON() throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
 
-        let data = try encoder.encode(config)
-        let json = try XCTUnwrap(String(data: data, encoding: .utf8))
+        let data = try encoder.encode(Config.default)
+        let json = String(data: data, encoding: .utf8)!
 
-        // Verify key fields are present in the JSON string
-        XCTAssertTrue(json.contains("\"targetLang\""))
-        XCTAssertTrue(json.contains("\"vi\""))
-        XCTAssertTrue(json.contains("\"cacheSize\""))
-        XCTAssertTrue(json.contains("500"))
-        XCTAssertTrue(json.contains("\"shortcut\""))
+        #expect(json.contains("\"targetLang\""))
+        #expect(json.contains("\"vi\""))
+        #expect(json.contains("\"cacheSize\""))
+        #expect(json.contains("500"))
     }
 
-    func testConfigRoundTripsViaJSON() throws {
+    @Test func configRoundTripsViaJSON() throws {
         let original = Config(
             targetLang: "ja",
             sourceLang: "en",
@@ -53,55 +51,33 @@ final class ConfigTests: XCTestCase {
             cacheSize: 100
         )
 
-        let encoder = JSONEncoder()
-        let decoder = JSONDecoder()
-
-        let data = try encoder.encode(original)
-        let decoded = try decoder.decode(Config.self, from: data)
-
-        XCTAssertEqual(decoded, original)
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(Config.self, from: data)
+        #expect(decoded == original)
     }
 
-    func testDefaultConfigRoundTripsViaJSON() throws {
-        let encoder = JSONEncoder()
-        let decoder = JSONDecoder()
-
-        let data = try encoder.encode(Config.default)
-        let decoded = try decoder.decode(Config.self, from: data)
-
-        XCTAssertEqual(decoded, Config.default)
+    @Test func defaultConfigRoundTripsViaJSON() throws {
+        let data = try JSONEncoder().encode(Config.default)
+        let decoded = try JSONDecoder().decode(Config.self, from: data)
+        #expect(decoded == Config.default)
     }
 
     // MARK: - ConfigManager.load() without file
 
-    func testLoadReturnsDefaultsWhenNoFileExists() {
-        // ConfigManager.load() checks AppConstants.configFilePath.
-        // If the config file doesn't exist on this machine, it should return defaults.
-        // If it does exist, this test verifies load() at least doesn't crash.
+    @Test func loadReturnsValidConfig() {
         let config = ConfigManager.load()
-
-        // At minimum, verify it returns a valid Config.
-        // If no config file exists on disk, it should be exactly the default.
-        // We can't guarantee the file doesn't exist on CI, so we just check it's valid.
-        XCTAssertFalse(config.targetLang.isEmpty, "targetLang should not be empty")
-        XCTAssertGreaterThan(config.cacheSize, 0)
-        XCTAssertGreaterThan(config.apiTimeoutMs, 0)
+        #expect(!config.targetLang.isEmpty)
+        #expect(config.cacheSize > 0)
+        #expect(config.apiTimeoutMs > 0)
     }
 
-    // MARK: - ConfigManager save/load round-trip (using temp directory)
+    // MARK: - ConfigManager save/load round-trip
 
-    func testSaveThenLoadRoundTrip() throws {
-        // We test save/load by:
-        // 1. Saving the config (to the real config path — ConfigManager uses hardcoded paths)
-        // 2. Loading it back
-        // 3. Restoring the original state
-        //
-        // To be safe, we back up any existing config and restore it after.
-
+    @Test func saveThenLoadRoundTrip() throws {
         let configPath = AppConstants.configFilePath
         let fm = FileManager.default
 
-        // Back up existing config if present
+        // Back up existing config
         let backupPath = configPath.appendingPathExtension("test-backup")
         let hadExisting = fm.fileExists(atPath: configPath.path)
         if hadExisting {
@@ -109,7 +85,6 @@ final class ConfigTests: XCTestCase {
         }
 
         defer {
-            // Restore original state
             try? fm.removeItem(at: configPath)
             if hadExisting {
                 try? fm.moveItem(at: backupPath, to: configPath)
@@ -129,25 +104,22 @@ final class ConfigTests: XCTestCase {
 
         try ConfigManager.save(custom)
         let loaded = ConfigManager.load()
-
-        XCTAssertEqual(loaded, custom)
+        #expect(loaded == custom)
     }
 
-    // MARK: - Config Equatable
+    // MARK: - Equatable
 
-    func testConfigEqualityForIdenticalValues() {
+    @Test func configEqualityForIdenticalValues() {
         let a = Config(targetLang: "vi", sourceLang: "en", shortcut: "x",
                        autostart: true, showSelectionIcon: true,
                        popupDuration: 10, apiTimeoutMs: 3000, cacheSize: 500)
         let b = Config(targetLang: "vi", sourceLang: "en", shortcut: "x",
                        autostart: true, showSelectionIcon: true,
                        popupDuration: 10, apiTimeoutMs: 3000, cacheSize: 500)
-        XCTAssertEqual(a, b)
+        #expect(a == b)
     }
 
-    func testConfigInequalityForDifferentValues() {
-        let a = Config.default
-        let b = Config(targetLang: "ja")
-        XCTAssertNotEqual(a, b)
+    @Test func configInequalityForDifferentValues() {
+        #expect(Config.default != Config(targetLang: "ja"))
     }
 }
