@@ -26,8 +26,11 @@
   <!-- <img src="https://img.shields.io/github/v/release/delee03/DevTranslator" alt="Latest Release" /> -->
 </p>
 
-<!-- TODO: Add GIF demo here -->
-<!-- <p align="center"><img src="docs/demo.gif" alt="DevTranslator demo" width="680" /></p> -->
+<p align="center">
+  <video src="https://github.com/delee03/DevTranslator/raw/main/Assets/DemoDevTranslator.mov" width="680" controls></video>
+</p>
+
+> If the video doesn't load, [watch the demo here](Assets/DemoDevTranslator.mov).
 
 ---
 
