@@ -87,13 +87,13 @@ public final class SelectionIcon: NSObject {
         dismissTimer = nil
         removeEventTap()
 
-        guard let window = self.window else { return }
+        guard let oldWindow = self.window else { return }
+        self.window = nil
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = PopupStyle.animationDuration
-            window.animator().alphaValue = 0
-        }, completionHandler: { [weak self] in
-            window.orderOut(nil)
-            self?.window = nil
+            oldWindow.animator().alphaValue = 0
+        }, completionHandler: {
+            oldWindow.orderOut(nil)
         })
     }
 

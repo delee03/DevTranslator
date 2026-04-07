@@ -121,13 +121,15 @@ public final class TranslationPopup {
         dismissTimer = nil
         removeClickMonitors()
 
-        guard let panel = self.panel else { return }
+        guard let oldPanel = self.panel else { return }
+        // Nil immediately so a subsequent show() doesn't get its new panel
+        // clobbered by the animation completion handler.
+        self.panel = nil
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = PopupStyle.animationDuration
-            panel.animator().alphaValue = 0
-        }, completionHandler: { [weak self] in
-            panel.orderOut(nil)
-            self?.panel = nil
+            oldPanel.animator().alphaValue = 0
+        }, completionHandler: {
+            oldPanel.orderOut(nil)
         })
     }
 
