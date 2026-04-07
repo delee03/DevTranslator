@@ -3,12 +3,16 @@ import Shared
 
 /// A small floating "Dt" icon that appears near selected text.
 /// Clicking it triggers the translation popup.
+///
+/// Uses a CGEvent tap for click detection because NSEvent monitors don't
+/// fire for accessory-mode apps when another app is frontmost.
 public final class SelectionIcon: NSObject {
     private var window: NSWindow?
     private var onClicked: (() -> Void)?
     private var dismissTimer: Timer?
-    private var globalClickMonitor: Any?
-    private var localClickMonitor: Any?
+
+    private var eventTap: CFMachPort?
+    private var runLoopSource: CFRunLoopSource?
 
     public override init() {
         super.init()
@@ -16,7 +20,6 @@ public final class SelectionIcon: NSObject {
 
     /// Show the selection icon near the given screen position.
     public func show(near position: CGPoint, onClick: @escaping () -> Void) {
-        // Dismiss any existing icon first
         dismissImmediate()
 
         self.onClicked = onClick
@@ -29,7 +32,6 @@ public final class SelectionIcon: NSObject {
             height: size
         )
 
-        // Clamp to visible screen area
         if let screen = NSScreen.screens.first(where: { $0.frame.contains(position) }) ?? NSScreen.main {
             let visible = screen.visibleFrame
             frame.origin.x = min(max(frame.origin.x, visible.minX), visible.maxX - size)
@@ -49,18 +51,12 @@ public final class SelectionIcon: NSObject {
         window.ignoresMouseEvents = false
         window.hidesOnDeactivate = false
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
-        window.becomesKeyOnlyIfNeeded = true
 
-        let button = IconButton(frame: NSRect(origin: .zero, size: frame.size)) { [weak self] in
-            Logger.shared.debug("SelectionIcon clicked")
-            self?.dismiss()
-            self?.onClicked?()
-        }
+        let button = IconButton(frame: NSRect(origin: .zero, size: frame.size))
         window.contentView = button
 
         self.window = window
 
-        // Fade in
         window.alphaValue = 0
         window.orderFrontRegardless()
         NSAnimationContext.runAnimationGroup { ctx in
@@ -76,33 +72,7 @@ public final class SelectionIcon: NSObject {
         RunLoop.main.add(autoDismiss, forMode: .common)
         dismissTimer = autoDismiss
 
-        // Global monitor: catches clicks when another app (terminal) is frontmost.
-        // This is required because accessory apps don't receive mouseDown on their
-        // floating panels when they're not the active app.
-        globalClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) { [weak self] _ in
-            let mouse = NSEvent.mouseLocation
-            let frame = self?.window?.frame ?? .zero
-            fputs("[debug] GLOBAL click at (\(mouse.x), \(mouse.y)), icon frame: \(frame)\n", stderr)
-            if frame.contains(mouse) {
-                fputs("[debug] >>> HIT — triggering translation\n", stderr)
-                self?.handleClick()
-            }
-        }
-
-        // Local monitor: catches clicks when the app IS active (fallback).
-        localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
-            let mouse = NSEvent.mouseLocation
-            let frame = self?.window?.frame ?? .zero
-            fputs("[debug] LOCAL click at (\(mouse.x), \(mouse.y)), icon frame: \(frame)\n", stderr)
-            if frame.contains(mouse) {
-                fputs("[debug] >>> HIT — triggering translation\n", stderr)
-                self?.handleClick()
-                return nil
-            }
-            return event
-        }
-
-        Logger.shared.debug("SelectionIcon shown at (\(position.x), \(position.y))")
+        installEventTap()
     }
 
     private func handleClick() {
@@ -115,7 +85,7 @@ public final class SelectionIcon: NSObject {
     public func dismiss() {
         dismissTimer?.invalidate()
         dismissTimer = nil
-        removeMonitors()
+        removeEventTap()
 
         guard let window = self.window else { return }
         NSAnimationContext.runAnimationGroup({ ctx in
@@ -131,36 +101,82 @@ public final class SelectionIcon: NSObject {
     private func dismissImmediate() {
         dismissTimer?.invalidate()
         dismissTimer = nil
-        removeMonitors()
+        removeEventTap()
         window?.orderOut(nil)
         window = nil
     }
 
-    private func removeMonitors() {
-        if let m = globalClickMonitor { NSEvent.removeMonitor(m); globalClickMonitor = nil }
-        if let m = localClickMonitor { NSEvent.removeMonitor(m); localClickMonitor = nil }
+    // MARK: - CGEvent Tap
+
+    private func installEventTap() {
+        removeEventTap()
+
+        let refcon = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
+
+        let eventMask: CGEventMask = (1 << CGEventType.leftMouseDown.rawValue)
+
+        guard let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .listenOnly,
+            eventsOfInterest: eventMask,
+            callback: { _, _, event, refcon -> Unmanaged<CGEvent>? in
+                guard let refcon = refcon else { return Unmanaged.passUnretained(event) }
+                let icon = Unmanaged<SelectionIcon>.fromOpaque(refcon).takeUnretainedValue()
+
+                guard let window = icon.window else { return Unmanaged.passUnretained(event) }
+
+                // NSEvent.mouseLocation handles multi-monitor coordinate conversion correctly.
+                let cocoaPoint = NSEvent.mouseLocation
+                let frame = window.frame
+
+                if frame.contains(cocoaPoint) {
+                    DispatchQueue.main.async {
+                        icon.handleClick()
+                    }
+                }
+
+                return Unmanaged.passUnretained(event)
+            },
+            userInfo: refcon
+        ) else {
+            fputs("[warning] SelectionIcon: failed to create CGEvent tap (Accessibility permission missing?)\n", stderr)
+            return
+        }
+
+        self.eventTap = tap
+        let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        self.runLoopSource = source
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+    }
+
+    private func removeEventTap() {
+        if let tap = eventTap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+            if let source = runLoopSource {
+                CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+            }
+            eventTap = nil
+            runLoopSource = nil
+        }
     }
 }
 
 // MARK: - Clickable Panel
 
-/// NSPanel subclass that accepts key status so mouseDown events
-/// are delivered to its content view, even when using nonActivatingPanel style.
 private class ClickablePanel: NSPanel {
     override var canBecomeKey: Bool { true }
 }
 
 // MARK: - Icon Button View
 
-/// Custom NSView that draws the "Dt" icon. Uses a closure for click handling
-/// instead of target-action (avoids NSObject requirement on the caller).
+/// Custom NSView that draws the "Dt" icon and provides hover feedback.
 private class IconButton: NSView {
     private var isHovered = false
     private var trackingArea: NSTrackingArea?
-    private let onClick: () -> Void
 
-    init(frame: NSRect, onClick: @escaping () -> Void) {
-        self.onClick = onClick
+    override init(frame: NSRect) {
         super.init(frame: frame)
     }
 
@@ -191,14 +207,6 @@ private class IconButton: NSView {
             height: textSize.height
         )
         (text as NSString).draw(in: textRect, withAttributes: attrs)
-    }
-
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
-        true // Accept clicks even when the app isn't focused
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        onClick()
     }
 
     override func updateTrackingAreas() {

@@ -237,6 +237,29 @@ Translations are cached in-memory (default: 500 entries) so repeated lookups are
 
 ---
 
+## Debugging
+
+Stream daemon logs in real time:
+
+```bash
+log stream --predicate 'subsystem == "com.devtranslator"' --level debug
+```
+
+Show recent logs (last 60 seconds):
+
+```bash
+log show --predicate 'subsystem == "com.devtranslator"' --last 60s --style compact
+```
+
+Check daemon status and diagnose issues:
+
+```bash
+devtranslator status
+devtranslator diagnose
+```
+
+---
+
 ## Roadmap
 
 - [x] Translation engine with Google Translate
