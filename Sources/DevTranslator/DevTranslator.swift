@@ -16,6 +16,7 @@ struct DevTranslatorCLI: AsyncParsableCommand {
             StopCommand.self,
             StatusCommand.self,
             ToggleCommand.self,
+            DiagnoseCommand.self,
         ],
         defaultSubcommand: TranslateCommand.self
     )

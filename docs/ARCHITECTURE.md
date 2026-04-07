@@ -127,7 +127,7 @@ User input ("Hello world")
 
 Same flow, except the CLI detects stdin is not a terminal (`isatty(STDIN_FILENO) == 0`), reads all lines from stdin, joins them, and feeds the result into the translation flow above.
 
-### Daemon Mode (Phase 2 — not yet implemented)
+### Daemon Mode (`devtranslator start`)
 
 ```
 Background daemon (RunLoop)
@@ -184,13 +184,31 @@ Background daemon (RunLoop)
 | `Logger.swift` | Thin wrapper around `os.Logger`. Levels: debug, info, warning, error. |
 | `Constants.swift` | App name, version, file paths, API base URL, default values. |
 
+### SelectionMonitor
+
+| File | Responsibility |
+|------|---------------|
+| `PermissionHelper.swift` | Checks `AXIsProcessTrusted()`, prompts user to grant Accessibility access, opens System Settings. |
+| `AccessibilityManager.swift` | Reads selected text from focused app via `AXUIElement`. Tries `AXSelectedText` first, falls back to `AXSelectedTextRange` + `AXValue`. Also reads text bounds for popup positioning. |
+| `SelectionObserver.swift` | Event-based monitor using `AXObserver` + `NSWorkspace.didActivateApplicationNotification`. Attaches to the frontmost app, listens for `AXSelectedTextChangedNotification`. Debounces rapid changes (0.3s). Deduplicates identical selections. |
+
+### PopupUI
+
+| File | Responsibility |
+|------|---------------|
+| `PopupStyle.swift` | Styling constants — colors, fonts, dimensions. Dark/light mode aware via `NSColor(name:)`. |
+| `SelectionIcon.swift` | Small 24x24 floating "Dt" icon (`NSWindow.borderless`). Appears near cursor on text selection. Hover effect, 5s auto-dismiss. Clicking triggers translation. |
+| `TranslationPopup.swift` | `NSPanel` overlay showing translated text + Copy button. Auto-dismiss after configurable duration (default 10s). Dismisses on click-away. Stays on screen (adjusts position if near edges). Fade in/out animation. |
+| `HotkeyManager.swift` | Registers global `Cmd+Shift+T` via `NSEvent.addGlobalMonitorForEvents`. Parses shortcut string from config into modifier flags + key code. |
+
 ### DevTranslator (CLI)
 
 | File | Responsibility |
 |------|---------------|
 | `DevTranslator.swift` | `@main` entry point. Root command with `TranslateCommand` as default subcommand. |
 | `ConfigCommand.swift` | `devtranslator config` — view, update, or reset config via CLI flags. |
-| `DaemonCommands.swift` | Placeholder stubs for `start`, `stop`, `status`, `toggle` (Phase 2). |
+| `DaemonCommands.swift` | `start` (foreground or background fork), `stop` (SIGTERM via PID file), `status` (PID check + Accessibility status), `toggle` (SIGUSR1 to pause/resume). |
+| `DaemonController.swift` | Orchestrator: wires SelectionObserver → SelectionIcon → CachedTranslationService → TranslationPopup. Runs as `NSApplication` with `.accessory` activation policy (no dock icon). Manages PID file at `~/.config/devtranslator/devtranslator.pid`. |
 
 ---
 

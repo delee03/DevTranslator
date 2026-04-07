@@ -16,6 +16,8 @@ let package = Package(
             name: "devtranslator",
             dependencies: [
                 "TranslationEngine",
+                "SelectionMonitor",
+                "PopupUI",
                 "Shared",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ],
@@ -27,6 +29,20 @@ let package = Package(
             name: "TranslationEngine",
             dependencies: ["Shared"],
             path: "Sources/TranslationEngine"
+        ),
+
+        // Text selection detection via macOS Accessibility API
+        .target(
+            name: "SelectionMonitor",
+            dependencies: ["Shared"],
+            path: "Sources/SelectionMonitor"
+        ),
+
+        // Floating translation popup UI
+        .target(
+            name: "PopupUI",
+            dependencies: ["TranslationEngine", "Shared"],
+            path: "Sources/PopupUI"
         ),
 
         // Shared utilities
