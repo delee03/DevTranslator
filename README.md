@@ -27,7 +27,7 @@
 </p>
 
 <p align="center">
-  <video src="https://github.com/delee03/DevTranslator/raw/main/Assets/DemoDevTranslator.mov" width="680" controls></video>
+  <video src="https://github.com/user-attachments/assets/70c4176b-01c1-470c-a8c1-95af5f5d7837" width="680" controls></video>
 </p>
 
 > If the video doesn't load, [watch the demo here](Assets/DemoDevTranslator.mov).
