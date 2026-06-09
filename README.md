@@ -2,7 +2,7 @@
   <img src="Assets/icon.svg" alt="DevTranslator" width="120" />
 </p>
 
-<h1 align="center">DevTranslator</h1>
+<h1 align="center">DevTranslatorr</h1>
 
 <p align="center">
   <strong>Instant translation for developers who live in the terminal.</strong><br/>
