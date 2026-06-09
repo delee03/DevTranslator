@@ -1,0 +1,63 @@
+name: CI and Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: Build and Test
+    runs-on: macos-15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Show Swift version
+        run: swift --version
+
+      - name: Build
+        run: swift build
+
+      - name: Test
+        run: swift test --enable-swift-testing --disable-xctest
+
+  release:
+    name: Release Binaries
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - arm64
+          - x86_64
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build release binary
+        run: swift build -c release --arch "${{ matrix.arch }}"
+
+      - name: Package binary
+        run: |
+          set -euo pipefail
+          mkdir -p "dist/devtranslator-macos-${{ matrix.arch }}"
+          cp ".build/${{ matrix.arch }}-apple-macosx/release/devtranslator" "dist/devtranslator-macos-${{ matrix.arch }}/devtranslator"
+          cp README.md LICENSE "dist/devtranslator-macos-${{ matrix.arch }}/"
+          tar -C "dist/devtranslator-macos-${{ matrix.arch }}" -czf "dist/devtranslator-macos-${{ matrix.arch }}.tar.gz" .
+          shasum -a 256 "dist/devtranslator-macos-${{ matrix.arch }}.tar.gz" > "dist/devtranslator-macos-${{ matrix.arch }}.tar.gz.sha256"
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/devtranslator-macos-${{ matrix.arch }}.tar.gz
+            dist/devtranslator-macos-${{ matrix.arch }}.tar.gz.sha256
