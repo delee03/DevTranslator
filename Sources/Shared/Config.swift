@@ -53,8 +53,7 @@ public enum ConfigManager {
 
     private static let decoder = JSONDecoder()
 
-    public static func load() -> Config {
-        let path = AppConstants.configFilePath
+    public static func load(from path: URL = AppConstants.configFilePath) -> Config {
         guard FileManager.default.fileExists(atPath: path.path) else {
             return .default
         }
@@ -67,10 +66,10 @@ public enum ConfigManager {
         }
     }
 
-    public static func save(_ config: Config) throws {
-        let dir = AppConstants.configDirectory
+    public static func save(_ config: Config, to path: URL = AppConstants.configFilePath) throws {
+        let dir = path.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let data = try encoder.encode(config)
-        try data.write(to: AppConstants.configFilePath, options: .atomic)
+        try data.write(to: path, options: .atomic)
     }
 }

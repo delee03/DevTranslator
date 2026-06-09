@@ -64,32 +64,19 @@ struct ConfigTests {
 
     // MARK: - ConfigManager.load() without file
 
-    @Test func loadReturnsValidConfig() {
-        let config = ConfigManager.load()
-        #expect(!config.targetLang.isEmpty)
-        #expect(config.cacheSize > 0)
-        #expect(config.apiTimeoutMs > 0)
+    @Test func loadReturnsDefaultConfigWhenFileDoesNotExist() {
+        let configPath = temporaryConfigPath()
+
+        let config = ConfigManager.load(from: configPath)
+
+        #expect(config == Config.default)
     }
 
     // MARK: - ConfigManager save/load round-trip
 
     @Test func saveThenLoadRoundTrip() throws {
-        let configPath = AppConstants.configFilePath
-        let fm = FileManager.default
-
-        // Back up existing config
-        let backupPath = configPath.appendingPathExtension("test-backup")
-        let hadExisting = fm.fileExists(atPath: configPath.path)
-        if hadExisting {
-            try fm.copyItem(at: configPath, to: backupPath)
-        }
-
-        defer {
-            try? fm.removeItem(at: configPath)
-            if hadExisting {
-                try? fm.moveItem(at: backupPath, to: configPath)
-            }
-        }
+        let configPath = temporaryConfigPath()
+        defer { try? FileManager.default.removeItem(at: configPath.deletingLastPathComponent()) }
 
         let custom = Config(
             targetLang: "ko",
@@ -102,9 +89,15 @@ struct ConfigTests {
             cacheSize: 250
         )
 
-        try ConfigManager.save(custom)
-        let loaded = ConfigManager.load()
+        try ConfigManager.save(custom, to: configPath)
+        let loaded = ConfigManager.load(from: configPath)
         #expect(loaded == custom)
+    }
+
+    private func temporaryConfigPath() -> URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent("devtranslator-tests-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("config.json")
     }
 
     // MARK: - Equatable
