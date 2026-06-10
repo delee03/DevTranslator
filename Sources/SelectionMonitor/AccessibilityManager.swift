@@ -10,7 +10,20 @@ public final class AccessibilityManager: @unchecked Sendable {
     /// Get the currently focused application's AXUIElement.
     public func focusedApplication() -> AXUIElement? {
         guard let app = NSWorkspace.shared.frontmostApplication else { return nil }
-        return AXUIElementCreateApplication(app.processIdentifier)
+        let element = AXUIElementCreateApplication(app.processIdentifier)
+        AXUIElementSetMessagingTimeout(element, 0.2)
+        return element
+    }
+
+    /// Bundle identifier of the currently frontmost application.
+    public func frontmostApplicationBundleID() -> String? {
+        NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+    }
+
+    /// Returns true when the foreground app is one DevTranslator should observe.
+    public func isFrontmostApplicationAllowed(_ allowedApps: Set<String>) -> Bool {
+        guard let bundleID = frontmostApplicationBundleID() else { return false }
+        return allowedApps.contains(bundleID)
     }
 
     /// Get the focused UI element within an application.

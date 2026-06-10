@@ -22,9 +22,17 @@ struct StartCommand: ParsableCommand {
         }
 
         if foreground {
-            // Run in foreground (blocks)
-            let daemon = DaemonController()
-            daemon.start()
+            // AsyncParsableCommand can invoke subcommands from a Swift
+            // concurrency worker. AppKit must start on the main thread.
+            if Thread.isMainThread {
+                let daemon = DaemonController()
+                daemon.start()
+            } else {
+                DispatchQueue.main.sync {
+                    let daemon = DaemonController()
+                    daemon.start()
+                }
+            }
         } else {
             // Fork to background
             let binary = ProcessInfo.processInfo.arguments[0]

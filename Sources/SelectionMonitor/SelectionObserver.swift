@@ -8,21 +8,21 @@ public typealias SelectionHandler = (_ selectedText: String, _ cursorPosition: C
 /// This is more reliable than AXObserver or NSEvent global monitors, which are
 /// unreliable for terminal apps and accessory-mode applications.
 ///
-/// CPU cost: reading one AX attribute every 500ms is negligible (<0.1% CPU).
+/// CPU cost is kept low by polling at a conservative interval and skipping
+/// Accessibility reads outside the configured app allowlist.
 public final class SelectionObserver: @unchecked Sendable {
     private let accessibilityManager = AccessibilityManager.shared
     private var onSelection: SelectionHandler?
     private var pollTimer: Timer?
     private var isRunning = false
+    private var allowedApps = Set(Config.defaultAllowedApps)
 
     // Track last selection to avoid duplicate callbacks
     private var lastSelectedText: String = ""
 
-    // Poll interval in seconds
-    private let pollInterval: TimeInterval = 0.5
-
-    // Counter for periodic heartbeat logging (every ~30s = 60 ticks at 0.5s)
-    private var pollCount: UInt64 = 0
+    // Poll interval in seconds. Keep this conservative because AX calls can be
+    // expensive in some apps.
+    private let pollInterval: TimeInterval = 1.0
 
     public init() {}
 
@@ -36,6 +36,7 @@ public final class SelectionObserver: @unchecked Sendable {
         guard !isRunning else { return }
         self.onSelection = handler
         self.isRunning = true
+        self.allowedApps = Set(ConfigManager.load().allowedApps)
 
         // Create the timer and explicitly add it to the main run loop in .common modes.
         // Using .common ensures the timer fires even when menus are open, windows are
@@ -68,10 +69,9 @@ public final class SelectionObserver: @unchecked Sendable {
     // MARK: - Selection Detection
 
     private func checkForSelection() {
-        pollCount += 1
-        // Log a heartbeat every ~30s so we can confirm the timer is alive
-        if pollCount % 60 == 1 {
-            fputs("[heartbeat] SelectionObserver poll #\(pollCount)\n", stderr)
+        guard isFrontmostAppAllowed() else {
+            lastSelectedText = ""
+            return
         }
 
         guard let text = accessibilityManager.currentSelectedText(),
@@ -90,8 +90,10 @@ public final class SelectionObserver: @unchecked Sendable {
         lastSelectedText = trimmed
 
         let position = NSEvent.mouseLocation
-        fputs("[debug] Selection: \"\(trimmed.prefix(50))\" at (\(position.x), \(position.y))\n", stderr)
-
         onSelection?(trimmed, position)
+    }
+
+    private func isFrontmostAppAllowed() -> Bool {
+        accessibilityManager.isFrontmostApplicationAllowed(allowedApps)
     }
 }

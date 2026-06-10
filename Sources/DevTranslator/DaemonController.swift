@@ -17,18 +17,21 @@ public final class DaemonController {
     private let hotkeyManager = HotkeyManager()
     private let translationService: CachedTranslationService
     private let config: Config
+    private let allowedApps: Set<String>
 
     private var isPaused = false
     private var lastSelectedText = ""
     private var lastCursorPosition = CGPoint.zero
 
     public init() {
-        self.config = ConfigManager.load()
+        let loadedConfig = ConfigManager.load()
+        self.config = loadedConfig
+        self.allowedApps = Set(loadedConfig.allowedApps)
         self.translationService = CachedTranslationService(
-            service: GoogleTranslateService(timeoutMs: config.apiTimeoutMs),
-            cacheSize: config.cacheSize
+            service: GoogleTranslateService(timeoutMs: loadedConfig.apiTimeoutMs),
+            cacheSize: loadedConfig.cacheSize
         )
-        self.popup = TranslationPopup(dismissAfter: TimeInterval(config.popupDuration))
+        self.popup = TranslationPopup(dismissAfter: TimeInterval(loadedConfig.popupDuration))
     }
 
     /// Start the daemon. This enters the NSApplication run loop and does not return.
@@ -61,11 +64,12 @@ public final class DaemonController {
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
 
-        // Defer startup to after app.run() — applicationDidFinishLaunching is
-        // unreliable for unbundled CLI tools without an .app wrapper.
-        DispatchQueue.main.async { [self] in
+        // Defer startup to the AppKit run loop. Do not use DispatchQueue.main
+        // here: foreground start may call app.run() from a main-queue block.
+        CFRunLoopPerformBlock(CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue) { [self] in
             self.startServices()
         }
+        CFRunLoopWakeUp(CFRunLoopGetMain())
 
         fputs("DevTranslator daemon running. Press Ctrl+C to stop.\n", stderr)
         app.run()
@@ -108,7 +112,7 @@ public final class DaemonController {
     }
 
     private func handleHotkeyPress() {
-        guard !isPaused else { return }
+        guard !isPaused, isFrontmostAppAllowed() else { return }
 
         if let text = AccessibilityManager.shared.currentSelectedText(),
            !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -130,18 +134,32 @@ public final class DaemonController {
                     from: config.sourceLang,
                     to: config.targetLang
                 )
-                await MainActor.run {
-                    popup.show(translation: result.translatedText, near: position)
-                }
+                showPopupOnMainRunLoop(translation: result.translatedText, near: position)
             } catch {
                 let message = (error as? TranslationError)?.localizedDescription
                     ?? "Translation failed — check your internet connection"
                 Logger.shared.error("Translation failed: \(message)")
-                await MainActor.run {
-                    popup.showError(message, near: position)
-                }
+                showErrorOnMainRunLoop(message, near: position)
             }
         }
+    }
+
+    private func showPopupOnMainRunLoop(translation: String, near position: CGPoint) {
+        CFRunLoopPerformBlock(CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue) { [popup] in
+            popup.show(translation: translation, near: position)
+        }
+        CFRunLoopWakeUp(CFRunLoopGetMain())
+    }
+
+    private func showErrorOnMainRunLoop(_ message: String, near position: CGPoint) {
+        CFRunLoopPerformBlock(CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue) { [popup] in
+            popup.showError(message, near: position)
+        }
+        CFRunLoopWakeUp(CFRunLoopGetMain())
+    }
+
+    private func isFrontmostAppAllowed() -> Bool {
+        AccessibilityManager.shared.isFrontmostApplicationAllowed(allowedApps)
     }
 
     // MARK: - PID File Management

@@ -22,8 +22,14 @@ public final class HotkeyManager {
                   event.keyCode == keyCode else {
                 return
             }
-            DispatchQueue.main.async {
+
+            if Thread.isMainThread {
                 self?.onTrigger?()
+            } else {
+                CFRunLoopPerformBlock(CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue) {
+                    self?.onTrigger?()
+                }
+                CFRunLoopWakeUp(CFRunLoopGetMain())
             }
         }
 

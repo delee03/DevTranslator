@@ -53,6 +53,9 @@ public final class SelectionIcon: NSObject {
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
 
         let button = IconButton(frame: NSRect(origin: .zero, size: frame.size))
+        button.onClick = { [weak self] in
+            self?.handleClick()
+        }
         window.contentView = button
 
         self.window = window
@@ -76,9 +79,10 @@ public final class SelectionIcon: NSObject {
     }
 
     private func handleClick() {
-        let callback = onClicked
+        guard let callback = onClicked else { return }
+        onClicked = nil
         dismiss()
-        callback?()
+        callback()
     }
 
     /// Hide with fade-out animation.
@@ -131,9 +135,10 @@ public final class SelectionIcon: NSObject {
                 let frame = window.frame
 
                 if frame.contains(cocoaPoint) {
-                    DispatchQueue.main.async {
+                    CFRunLoopPerformBlock(CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue) {
                         icon.handleClick()
                     }
+                    CFRunLoopWakeUp(CFRunLoopGetMain())
                 }
 
                 return Unmanaged.passUnretained(event)
@@ -175,6 +180,7 @@ private class ClickablePanel: NSPanel {
 private class IconButton: NSView {
     private var isHovered = false
     private var trackingArea: NSTrackingArea?
+    var onClick: (() -> Void)?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -233,5 +239,9 @@ private class IconButton: NSView {
         isHovered = false
         needsDisplay = true
         NSCursor.pop()
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        onClick?()
     }
 }
