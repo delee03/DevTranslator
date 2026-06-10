@@ -64,6 +64,11 @@ struct ConfigCommand: ParsableCommand {
     }
 
     private func printConfig(_ config: Config) {
+        let allowedApps = config.allowedApps
+            .sorted()
+            .map { "  - \($0)" }
+            .joined(separator: "\n")
+
         print("""
         DevTranslator Configuration
         ──────────────────────────────
@@ -76,6 +81,8 @@ struct ConfigCommand: ParsableCommand {
         API timeout:      \(config.apiTimeoutMs)ms
         Cache size:       \(config.cacheSize)
         Config file:      \(AppConstants.configFilePath.path)
+        Allowed apps:
+        \(allowedApps)
         """)
     }
 }

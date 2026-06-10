@@ -18,6 +18,7 @@ struct ConfigTests {
         #expect(config.popupDuration == 10)
         #expect(config.apiTimeoutMs == 3000)
         #expect(config.cacheSize == 500)
+        #expect(config.allowedApps.contains("com.mitchellh.ghostty"))
     }
 
     @Test func defaultInitMatchesStaticDefault() {
@@ -48,7 +49,8 @@ struct ConfigTests {
             showSelectionIcon: false,
             popupDuration: 5,
             apiTimeoutMs: 5000,
-            cacheSize: 100
+            cacheSize: 100,
+            allowedApps: ["com.apple.Terminal", "com.mitchellh.ghostty"]
         )
 
         let data = try JSONEncoder().encode(original)
@@ -60,6 +62,26 @@ struct ConfigTests {
         let data = try JSONEncoder().encode(Config.default)
         let decoded = try JSONDecoder().decode(Config.self, from: data)
         #expect(decoded == Config.default)
+    }
+
+    @Test func decodingLegacyConfigUsesDefaultAllowedApps() throws {
+        let json = """
+        {
+          "targetLang": "ja",
+          "sourceLang": "en",
+          "shortcut": "cmd+shift+t",
+          "autostart": true,
+          "showSelectionIcon": true,
+          "popupDuration": 10,
+          "apiTimeoutMs": 3000,
+          "cacheSize": 500
+        }
+        """
+
+        let decoded = try JSONDecoder().decode(Config.self, from: Data(json.utf8))
+
+        #expect(decoded.targetLang == "ja")
+        #expect(decoded.allowedApps == Config.defaultAllowedApps)
     }
 
     // MARK: - ConfigManager.load() without file
@@ -86,7 +108,8 @@ struct ConfigTests {
             showSelectionIcon: false,
             popupDuration: 7,
             apiTimeoutMs: 2000,
-            cacheSize: 250
+            cacheSize: 250,
+            allowedApps: ["com.mitchellh.ghostty"]
         )
 
         try ConfigManager.save(custom, to: configPath)
@@ -105,10 +128,12 @@ struct ConfigTests {
     @Test func configEqualityForIdenticalValues() {
         let a = Config(targetLang: "vi", sourceLang: "en", shortcut: "x",
                        autostart: true, showSelectionIcon: true,
-                       popupDuration: 10, apiTimeoutMs: 3000, cacheSize: 500)
+                       popupDuration: 10, apiTimeoutMs: 3000, cacheSize: 500,
+                       allowedApps: ["com.apple.Terminal"])
         let b = Config(targetLang: "vi", sourceLang: "en", shortcut: "x",
                        autostart: true, showSelectionIcon: true,
-                       popupDuration: 10, apiTimeoutMs: 3000, cacheSize: 500)
+                       popupDuration: 10, apiTimeoutMs: 3000, cacheSize: 500,
+                       allowedApps: ["com.apple.Terminal"])
         #expect(a == b)
     }
 

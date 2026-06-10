@@ -140,7 +140,19 @@ Config lives at `~/.config/devtranslator/config.json`:
   "showSelectionIcon": true,
   "popupDuration": 10,
   "apiTimeoutMs": 3000,
-  "cacheSize": 500
+  "cacheSize": 500,
+  "allowedApps": [
+    "com.apple.Terminal",
+    "com.googlecode.iterm2",
+    "com.mitchellh.ghostty",
+    "com.microsoft.VSCode",
+    "com.microsoft.VSCodeInsiders",
+    "com.todesktop.230313mzl4w4u92",
+    "dev.warp.Warp",
+    "dev.warp.Warp-Stable",
+    "net.kovidgoyal.kitty",
+    "org.alacritty"
+  ]
 }
 ```
 
