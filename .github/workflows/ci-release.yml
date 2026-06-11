@@ -4,8 +4,7 @@ on:
   push:
     branches:
       - main
-    tags:
-      - "v*"
+      - release
   pull_request:
   workflow_dispatch:
 
@@ -34,7 +33,7 @@ jobs:
   build-release:
     name: Build Release Binary (${{ matrix.arch }})
     needs: test
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.ref == 'refs/heads/release'
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
@@ -73,11 +72,16 @@ jobs:
   publish-release:
     name: Publish GitHub Release
     needs: build-release
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.ref == 'refs/heads/release'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Download packaged binaries
         uses: actions/download-artifact@v4
         with:
@@ -85,13 +89,36 @@ jobs:
           pattern: devtranslator-macos-*
           merge-multiple: true
 
+      - name: Show release assets
+        run: ls -lah dist
+
       - name: Publish release assets
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG_NAME: ${{ github.ref_name }}
+          RELEASE_TAG: latest
+          RELEASE_TARGET: ${{ github.sha }}
         run: |
           set -euo pipefail
-          gh release create "$TAG_NAME" dist/* \
-            --title "$TAG_NAME" \
-            --notes "DevTranslator $TAG_NAME" \
-            --verify-tag
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "$RELEASE_TAG" "$RELEASE_TARGET"
+          git push origin "refs/tags/$RELEASE_TAG" --force
+
+          gh release view "$RELEASE_TAG" >/dev/null 2>&1 || \
+            gh release create "$RELEASE_TAG" \
+              --title "Latest" \
+              --notes "Latest DevTranslator build from the release branch." \
+              --verify-tag \
+              --latest
+
+          gh release edit "$RELEASE_TAG" \
+            --title "Latest" \
+            --notes "Latest DevTranslator build from the release branch." \
+            --latest
+
+          gh release upload "$RELEASE_TAG" \
+            dist/devtranslator-macos-arm64.tar.gz \
+            dist/devtranslator-macos-arm64.tar.gz.sha256 \
+            dist/devtranslator-macos-x86_64.tar.gz \
+            dist/devtranslator-macos-x86_64.tar.gz.sha256 \
+            --clobber
