@@ -111,6 +111,8 @@ install_binary() {
 
 install_from_release() {
   need_cmd curl
+  need_cmd tar
+
   ASSET="devtranslator-macos-$ARCH.tar.gz"
   if [ "$VERSION" = "latest" ]; then
     URL="https://github.com/$REPO/releases/latest/download/$ASSET"
@@ -120,9 +122,17 @@ install_from_release() {
 
   ARCHIVE="$TMP_DIR/$ASSET"
   log "Downloading $URL"
-  curl -fsSL "$URL" -o "$ARCHIVE"
-  tar -xzf "$ARCHIVE" -C "$TMP_DIR"
-  [ -x "$TMP_DIR/$BINARY_NAME" ] || fail "release archive did not contain $BINARY_NAME"
+  if ! curl -fsSL "$URL" -o "$ARCHIVE"; then
+    return 1
+  fi
+  if ! tar -xzf "$ARCHIVE" -C "$TMP_DIR"; then
+    return 1
+  fi
+  if [ ! -x "$TMP_DIR/$BINARY_NAME" ]; then
+    log "Release archive did not contain $BINARY_NAME"
+    return 1
+  fi
+
   install_binary "$TMP_DIR/$BINARY_NAME"
 }
 
