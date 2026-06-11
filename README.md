@@ -52,9 +52,16 @@ curl -fsSL https://raw.githubusercontent.com/delee03/DevTranslator/main/install.
 
 That's it. The script will:
 - Detect your Mac's architecture (Apple Silicon or Intel)
-- Download the correct binary
-- Add it to your PATH
+- Download the correct release binary when one is available
+- Fall back to building from source with SwiftPM when release assets are not available yet
+- Install the binary under `~/.local/bin` by default
 - Prompt for macOS Accessibility permission (required for text selection detection)
+
+To force a source build:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/delee03/DevTranslator/main/install.sh | sh -s -- --from-source
+```
 
 To uninstall:
 
